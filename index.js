@@ -380,35 +380,92 @@ async function startBot(){
     }
   });
 
-  sock.ev.on('messages.upsert',async({messages})=>{
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+
+  try {
 
     const msg = messages[0];
-    if(!msg.message || msg.key.fromMe) return;
+    if (!msg.message || msg.key.fromMe) return;
 
     const from = msg.key.remoteJid;
-    const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
 
-    if(!text) return;
+    // ignore groups
+    if (from.endsWith('@g.us')) return;
+
+    // =========================
+    // SAFE TEXT EXTRACTION FIX
+    // =========================
+
+    let text =
+      msg.message.conversation ||
+      msg.message.extendedTextMessage?.text ||
+      msg.message.imageMessage?.caption ||
+      msg.message.videoMessage?.caption ||
+      msg.message.buttonsResponseMessage?.selectedButtonId ||
+      msg.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+      '';
+
+    text = text.toString().trim();
+
+    if (!text) return;
 
     users.add(from);
 
-    if(text === '/menu'){
-      return sock.sendMessage(from,{text:menuText()});
+    saveLog(`${from} => ${text}`);
+
+    console.log('MSG RECEIVED:', from, text);
+
+    // =========================
+    // MENU TEST
+    // =========================
+
+    if (text.toLowerCase() === '/menu') {
+      return sock.sendMessage(from, { text: menuText() });
     }
 
-    if(!aiEnabled) return;
+    // =========================
+    // AI CHECK
+    // =========================
 
-    const res = await axios.post(AI_LINK,{
-      prompt:text
-    });
+    if (!aiEnabled) return;
 
-    const reply = res.data.reply || 'No response';
+    if (!memory[from]) memory[from] = [];
+    memory[from].push(text);
 
-    await sock.sendMessage(from,{text:reply});
+    const history = memory[from].slice(-5).join('\n');
 
-  });
+    let reply = '🤖 AI is currently unavailable';
 
-}
+    try {
 
+      const res = await axios.post(AI_LINK, {
+        prompt: `
+Conversation History:
+${history}
+
+User:
+${text}
+
+Reply naturally in under 100 words.
+        `
+      });
+
+      reply =
+        res.data.reply ||
+        res.data.response ||
+        reply;
+
+    } catch (err) {
+      console.log('AI ERROR:', err.message);
+      reply = '⚠️ AI server error or wrong AI_LINK';
+    }
+
+    await sock.sendMessage(from, { text: reply });
+
+  } catch (err) {
+    console.log('BOT ERROR:', err.message);
+  }
+
+});
 app.listen(PORT,()=>console.log('Dashboard running'));
 startBot();
