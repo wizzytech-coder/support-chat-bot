@@ -467,5 +467,6 @@ Reply naturally in under 100 words.
   }
 
 });
+}
 app.listen(PORT,()=>console.log('Dashboard running'));
 startBot();
