@@ -21,7 +21,7 @@ app.use(express.urlencoded({ extended: true }));
 // =====================================
 
 const PORT = process.env.PORT || 3000;
-const AI_LINK = 'https://your-ai-api-url.com/ai';
+const AI_LINK = 'https://flexieduconsult-ai-link.onrender.com/ai';
 
 // =====================================
 // STATE
